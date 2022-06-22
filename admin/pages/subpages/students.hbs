@@ -1,0 +1,301 @@
+<script language=javascript>
+    const students_url = "{{students_url}}";
+
+    $(document).ready( function () {
+
+        $('#studentsTable').DataTable({
+            "processing": true,
+            "ajax": {
+                "url": students_url+"view",
+                "dataSrc": "message"
+                },
+			"scrollX": true,
+			"colReorder": true,
+			"select": true,
+            "columns": [
+                { "data": "id" },
+                { "data": "name"},
+                { "data": "email" },
+                { "data": "phone"},
+                { "data": "emirates_id" },
+                { "data": "specialization"},
+                { "data": "student_uuid" },
+                { "data": "student_uuid", "render": renderoptions},
+                { "data": "mcq_taken"},
+                { "data": "mcq_uuid" },
+                { "data": "mcq_answers", "render": renderanswers_mcq},
+                { "data": "mcq_grade"},
+                { "data": "mcq_start", "render": rendertime},
+                { "data": "mcq_end", "render": rendertime},
+                { "data": "written_taken"},
+                { "data": "written_uuid" },
+                { "data": "written_answers", "render": renderanswers_written},
+                { "data": "written_grade"},
+                { "data": "written_start", "render": rendertime},
+                { "data": "written_end", "render": rendertime}
+            ]
+        });
+    });
+
+    function rendertime(data, type, row, meta){
+		if(!data){
+			return '';
+		}
+        if(type === 'display'){
+            var date = new Date(data * 1000);
+        }
+        if(!date){
+            return 0;
+        }
+        return date
+    }
+	
+    function renderoptions(data, type, row, meta){
+		if(type === 'display'){
+			data = '<a class="btn btn-info btn-sm" onclick="showmodal_options(\''+row.student_uuid+'\');">' + 'options' + '</a>';
+		}
+		return data;
+	}
+
+	function renderanswers_mcq(data, type, row, meta){
+		console.log(data)
+		if(data == '[]'){
+			return ''
+		}
+		if(type === 'display'){
+			data = '<a class="btn btn-info btn-sm" onclick="showmodal_answers(\''+meta.row+'\', \'mcq_answers\');">' + 'answers' + '</a>';
+		}
+		return data;
+	}
+
+    function renderanswers_written(data, type, row, meta){
+		if(data == '[]'){
+			return ''
+		}
+		if(type === 'display'){
+			data = '<a class="btn btn-info btn-sm" onclick="showmodal_answers(\''+meta.row+'\', \'written_answers\');">' + 'answers' + '</a>';
+		}
+		return data;
+	}
+
+    function getNodes(object) {
+		return Object
+			.entries(object)
+			.map(([key, value]) => value && typeof value === 'object'
+				? { text: parseInt(key)+1, key, children: getNodes(value)}
+				: { text: key, children: [{text: value}]}
+			);
+	}
+
+    function showmodal_answers(row, a_type){
+        const data = $('#studentsTable').DataTable().row(row).data()[a_type];
+		
+        treedata = getNodes(JSON.parse(data));
+		
+        $('#jstree').jstree("destroy").empty();
+		$("#answersModal").modal('show');
+		
+        $('#jstree').jstree({
+			core: {
+				data: treedata
+			}
+		});
+	}
+
+	function showmodal_options(uuid){
+		document.getElementById('optionsModal_uuid').value = uuid;
+		$("#optionsModal").modal('show');
+	}
+
+    function callapi(type, path){
+        const student_uuid = document.getElementById('optionsModal_uuid').value;
+        
+        if (path == 'reset'){
+            var formData = JSON.stringify({student_uuid: student_uuid, type: type});
+        }else if (path == 'time'){
+            if(type == 'mcq'){
+                var time = document.getElementById('optionsModal_mcq_time').value
+            }else if(type == 'written'){
+                var time = document.getElementById('optionsModal_written_time').value
+            }
+            var formData = JSON.stringify({student_uuid: student_uuid, time: time, type: type});
+        }else if (path == 'delete'){
+            var formData = JSON.stringify({student_uuid: student_uuid});
+        }
+        
+        $.ajax({
+            type: "POST",
+            url: students_url+path,
+            async: true,
+            data: formData,
+            crossDomain: true,
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            headers: {
+            "accept": "application/json",
+            "Access-Control-Allow-Origin":"*"},
+            success: function(response){
+                if(response.success == 0){
+                    options_status(response.message, 'danger');
+                }else{
+                    options_status(response.message, 'success');
+                }
+                reloadtable();
+            },
+            error: function(errMsg) {
+                options_status(errMsg, 'danger');
+                reloadtable();
+            }
+        });
+    }
+
+    function options_status(message, color) {
+		document.getElementById('options_response_status').innerHTML = `
+			<div class="alert alert-dismissable alert-${color}">
+			${message}
+			<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+			</div>
+		`;
+	}
+
+    function reloadtable(){
+        $('#studentsTable').DataTable().ajax.reload();
+    }
+
+
+</script>
+
+<div class="row">
+	<div class="col-md-12">
+		<div class="panel panel-default">
+			<div class="panel-heading">
+				<h2>Students table</h2>
+				<div class="panel-ctrls">
+				</div>
+			</div>
+            <div class="alert alert-info">
+				<h3>Students control</h3>
+				<p>Control students options here</p>
+			</div>
+			<div class="panel-body panel-no-padding">
+				<table id="studentsTable" class="table table-striped table-bordered" cellspacing="0" width="100%">
+					<thead>
+						<tr>
+                            <th>id</th>
+							<th>name</th>
+							<th>email</th>
+							<th>phone</th>
+                            <th>emirates_id</th>
+							<th>specialization</th>
+							<th>student_uuid</th>
+							<th>options</th>
+                            <th>mcq_taken</th>
+							<th>mcq_uuid</th>
+                            <th>mcq_answers</th>
+							<th>mcq_grade</th>
+							<th>mcq_start</th>
+							<th>mcq_end</th>
+                            <th>written_taken</th>
+							<th>written_uuid</th>
+                            <th>written_answers</th>
+							<th>written_grade</th>
+							<th>written_start</th>
+							<th>written_end</th>
+						</tr>
+					</thead>
+				</table>
+				<div class="panel-footer"></div>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<div>
+<!-- options modal -->
+<div class="modal fade" id="optionsModal" tabindex="-1" role="dialog" aria-labelledby="optionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="uuidModalLabel">User Options</h4>
+            </div>
+            <form id="addfactor" action="/" class="form-horizontal calender" name = "addfactor" method="post" role="form">
+			<div class="modal-body">
+				<div class="form-group">
+					<label class="col-sm-3 control-label">Student UUID</label>
+					<div class="col-sm-9">
+						<input type="text" class="form-control" id="optionsModal_uuid" name="optionsModal_uuid" readonly="readonly">
+					</div>
+                </div>
+				<div class="form-group">
+					<label class="col-sm-3 control-label">Reset MCQ</label>
+					<div class="col-sm-3">
+						<button class="btn btn-success btn-sm" type="button" onclick="callapi('mcq', 'reset');">Reset</button>
+					</div>
+				</div>
+                <div class="form-group">
+					<label class="col-sm-3 control-label">Reset Written</label>
+					<div class="col-sm-3">
+						<button class="btn btn-success btn-sm" type="button" onclick="callapi('written', 'reset');">Reset</button>
+					</div>
+				</div>
+                <div class="form-group">
+					<label class="col-sm-3 control-label">Add time mcq</label>
+                    <div class="col-sm-5">
+						<input type="text" class="form-control" id="optionsModal_mcq_time" name="optionsModal_mcq_time">
+					</div>
+					<div class="col-sm-3">
+						<button class="btn btn-success btn-sm" type="button" onclick="callapi('mcq', 'time');">Add</button>
+					</div>
+				</div>
+                <div class="form-group">
+					<label class="col-sm-3 control-label">Add time Written</label>
+                    <div class="col-sm-5">
+						<input type="text" class="form-control" id="optionsModal_written_time" name="optionsModal_written_time">
+					</div>
+					<div class="col-sm-3">
+						<button class="btn btn-success btn-sm" type="button" onclick="callapi('written', 'time');">Add</button>
+					</div>
+				</div>
+                <div class="form-group">
+					<label class="col-sm-3 control-label">Delete Student</label>
+					<div class="col-sm-9">
+						<button class="btn btn-danger btn-sm" type="button" onclick="callapi('NAN', 'delete');">Delete</button>
+					</div>
+				</div>
+
+                <div id="options_response_status"></div>
+			<div class="modal-footer" style="margin:0;">
+				<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+			</div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+
+
+
+<!-- answers modal -->
+<div>
+<div class="modal fade" id="answersModal" tabindex="-1" role="dialog" aria-labelledby="answersModalLabel" aria-hidden="true">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+				<h2 class="modal-title">Student Answers</h2>
+			</div>
+			<div class="modal-body">
+				<div id="jstree"></div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+			</div>
+		</div><!-- /.modal-content -->
+	</div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+</div>
